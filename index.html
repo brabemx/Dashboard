@@ -318,7 +318,17 @@
         return {key, value: raw, shared: !!shared};
       },
       async set(key, value, shared){
-        localStorage.setItem(LS_PREFIX+key, value);
+        try{
+          localStorage.setItem(LS_PREFIX+key, value);
+        }catch(e){
+          if(e && (e.name === 'QuotaExceededError' || e.code === 22)){
+            console.warn('Almacenamiento local lleno: no se pudo guardar "'+key+'". Los cambios de esta sesión no se guardarán hasta liberar espacio.');
+            const flag = document.getElementById('save-status');
+            if(flag){ flag.textContent='sin espacio para guardar'; flag.classList.remove('ok'); }
+            return {key, value, shared: !!shared, quotaExceeded:true};
+          }
+          throw e;
+        }
         return {key, value, shared: !!shared};
       },
       async delete(key, shared){
@@ -1406,8 +1416,11 @@ function renderCompras(){
           <td><input value="${attr(it.supplier)}" onchange="updateItem('${it.id}','supplier',this.value)"></td>
           <td><input type="number" value="${it.price}" onchange="updateItem('${it.id}','price',this.value)"></td>
           <td>
-            <input value="${attr(it.link||'')}" placeholder="https://…" style="min-width:130px;" onchange="updateItem('${it.id}','link',this.value)">
-            ${it.link? `<a class="link-open" href="${attr(it.link)}" target="_blank" rel="noopener">Abrir ↗</a>` : ''}
+            ${READONLY
+              ? (it.link ? `<a class="link-open" href="${attr(it.link)}" target="_blank" rel="noopener">Ver enlace de compra ↗</a>` : `<span class="empty" style="font-size:11px;">Sin enlace</span>`)
+              : `<input value="${attr(it.link||'')}" placeholder="https://…" style="min-width:130px;" onchange="updateItem('${it.id}','link',this.value)">
+                 ${it.link? `<a class="link-open" href="${attr(it.link)}" target="_blank" rel="noopener">Abrir ↗</a>` : ''}`
+            }
           </td>
           <td>
             <select onchange="updateItem('${it.id}','status',this.value)">
